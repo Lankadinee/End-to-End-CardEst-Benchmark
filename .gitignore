@@ -56,3 +56,4 @@ scripts/plan_cost/*
 *.log
 postgresql-13.1.tar.bz2
 *.xlsx
+dockerfile/postgres-13.1.tar.gz

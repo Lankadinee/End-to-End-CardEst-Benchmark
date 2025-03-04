@@ -1,15 +1,15 @@
-.PHONY: execute_permission apply_patch p_error build_docker stop_all_containers docker_run clean set_docker_permissions replace_file replace all create_stats_db copy_estimations create_db start_container test_one_file
+.PHONY: execute_permission apply_patch p_error build_docker stop_all_containers docker_run clean set_docker_permissions replace_file replace all copy_estimations create_db start_container test_one_file test_experiment
 
 IMAGE_NAME=ceb1
-DATABASE_NAME=forest
+DATABASE_NAME=custom
 CONTAINER_NAME=ce-benchmark-$(IMAGE_NAME)-$(DATABASE_NAME)
-TEST_FILENAME=NA
+TEST_FILENAME=custom_estimates_exp.txt
 
 all: execute_permission apply_patch build_docker init
 
-test: execute_permission init test_db p_error stop_container
+test: execute_permission init create_venv test_db p_error stop_container
 
-test_one: stop_all_containers start_container test_one_file stop_container
+test_one: stop_all_containers start_container create_venv test_one_file stop_container
 
 replace: replace_file build_docker
 
@@ -23,14 +23,20 @@ stop_container:
 	@docker stop $(CONTAINER_NAME)
 	echo "$(CONTAINER_NAME) Container stopped!"
 
+create_venv:
+	@uv sync
+
 test_db: 
-	@stdbuf -oL conda run -n cardest37 python -u scripts/py/send_query.py --database_name $(DATABASE_NAME) --container_name $(CONTAINER_NAME) 2>&1 | tee -a $(DATABASE_NAME)_test.log
+	uv run scripts/py/send_query.py --database_name $(DATABASE_NAME) --container_name $(CONTAINER_NAME) 2>&1 | tee -a $(DATABASE_NAME)_test.log
 
 test_one_file:
-	@stdbuf -oL conda run -n cardest37 python -u scripts/py/send_query.py --database_name $(DATABASE_NAME) --container_name $(CONTAINER_NAME) --filename $(TEST_FILENAME) 2>&1 | tee -a $(DATABASE_NAME)_test.log
+	uv run scripts/py/send_query.py --database_name $(DATABASE_NAME) --container_name $(CONTAINER_NAME) --filename $(TEST_FILENAME) 2>&1 | tee -a $(DATABASE_NAME)_test.log
+
+test_experiment:
+	uv run scripts/py/send_query_test_one_query.py 2>&1 | tee $(DATABASE_NAME)_test.log
 
 p_error:
-	@conda run -n cardest37 python -u p_error_calculation.py --database_name $(DATABASE_NAME)
+	uv run p_error_calculation.py --database_name $(DATABASE_NAME)
 	mkdir -p scripts/plan_cost/$(DATABASE_NAME)/results
 	mv scripts/plan_cost/$(DATABASE_NAME)/*.txt scripts/plan_cost/$(DATABASE_NAME)/results/
 
