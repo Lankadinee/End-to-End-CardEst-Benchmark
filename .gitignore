@@ -43,3 +43,16 @@ lib*.pc
 /Release/
 /tmp_install/
 .DS_Store
+postgresql-13.1/*
+.debris/*
+plan costs/*
+bkup/*
+postgresql-13.1-modified/*
+query_plans/*
+dockerfile/postgres-13.1.tar.gz
+scripts/plan_cost/*
+*.pyc
+# *.txt
+*.log
+postgresql-13.1.tar.bz2
+*.xlsx
