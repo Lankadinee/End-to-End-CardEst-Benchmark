@@ -1,4 +1,4 @@
-FROM debian:buster
+FROM debian:bookworm
 
 RUN apt-get update && apt-get install -y apt-transport-https ca-certificates
 
@@ -51,8 +51,9 @@ RUN set -eux \
   && echo 'postgres' > /var/lib/pgsql/13.1/passwd \
   && chmod -R 777 /var/lib/pgsql/13.1/passwd
 
+# USER root
 COPY ./init_pgsql.sh /var/lib/pgsql/13.1/init_pgsql.sh
-RUN chmod a+x /var/lib/pgsql/13.1/init_pgsql.sh
+RUN chmod 777 /var/lib/pgsql/13.1/init_pgsql.sh
 
 USER postgres
 RUN /var/lib/pgsql/13.1/init_pgsql.sh

@@ -1,0 +1,1 @@
+\copy power from '/tmp/single_table_datasets/power/power.csv' with CSV header;

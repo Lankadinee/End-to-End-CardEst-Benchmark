@@ -51,13 +51,13 @@ postgres -D $PSQL_DATA_DIRECTORY
 You can import the STATS dataset into Postgres through psql. Note you must make sure the path in `stats_load` is a correct one.
 
 ```bash
-template1=# create database stats
-template1=# \c stats
+template1=# create database stats;
+template1=# \c stats;
 stats=# \i datasets/stats_simplified/stats.sql
 stats=# \i scripts/sql/stats_load.sql
 stats=# \i scripts/sql/stats_index.sql
 ```
-
+create database stats;\c stats;\i datasets/stats_simplified/stats.sql;\i scripts/sql/stats_load.sql;\i scripts/sql/stats_index.sql;
 
 
 ##  Integration of CardEst Methods into PostgreSQL
@@ -77,8 +77,29 @@ stats=# SET ml_cardest_enabled=true; ## for single table
 stats=# SET ml_joinest_enabled=true; ## for multi-table
 stats=# SET query_no=0; ##for single table
 stats=# SET join_est_no=0; ##for multi-table
-stats=# SET ml_cardest_fname='[method_for_single_table].txt'; ## for single table
-stats=# SET ml_joinest_fname='[method_for_multi_table].txt'; ## for multi-table
+stats=# SET ml_cardest_fname='stats_CEB_sub_queries_bayescard.txt'; ## for single table
+stats=# SET ml_joinest_fname='stats_CEB_sub_queries_bayescard.txt'; ## for multi-table
+```
+
+Single Table
+```
+SET ml_cardest_enabled=true;
+SET query_no=0;
+SET ml_cardest_fname='stats_CEB_sub_queries_bayescard.txt';
+```
+
+Multi-Table
+```
+SET ml_joinest_enabled=true;
+SET join_est_no=0;
+SET ml_joinest_fname='stats_CEB_sub_queries_bayescard.txt';
+```
+
+
+Check running extensions
+```
+SELECT * FROM pg_available_extensions;
+
 ```
 
 ## How to Generate Sub-Plan Queries?
@@ -149,3 +170,32 @@ If you have \*ANY\* trouble to build this benchmark, please feel free to contact
 - Yuxing Han: **hanyuxing@bytedance.com**
 - Ziniu Wu: **ziniuw@mit.edu**
 
+## Errors
+
+```
+2025-02-23 22:26:36.986 UTC [1] LOG:  database system is ready to accept connections
+2025-02-23 22:26:39.902 UTC [1] LOG:  server process (PID 61835) was terminated by signal 11: Segmentation fault
+2025-02-23 22:26:39.902 UTC [1] DETAIL:  Failed process was running: EXPLAIN (FORMAT JSON) SELECT COUNT(*) FROM tpch_sf2_z1 WHERE l_orderkey >= 10356780.471407078 AND l_orderkey <= 11793947.528592922 AND l_partkey >= 184956.7294820174 AND l_partkey <= 196691.2705179826 AND l_suppkey >= 4076.57400893827 AND l_suppkey <= 7627.42599106173 AND l_linenumber <= 1.0546081912086596 AND l_quantity >= 23.28339027381786 AND l_quantity <= 26.71660972618214 AND l_extendedprice >= 47243.50229624263 AND l_extendedprice <= 48497.49770375737 AND l_discount >= 0.04449604977798416 AND l_discount <= 0.055503950222015846 AND l_tax >= 0.048981661010765586 AND l_tax <= 0.05101833898923442 AND l_returnflag = 'N' AND l_linestatus = 'F' AND l_shipdate = '1995-05-29' AND l_commitdate = '1995-07-29' AND l_receiptdate = '1995-06-22' AND l_shipinstruct = 'NONE                     ' AND l_shipmode = 'TRUCK     ';
+2025-02-23 22:26:39.902 UTC [1] LOG:  terminating any other active server processes
+2025-02-23 22:26:39.903 UTC [61832] WARNING:  terminating connection because of crash of another server process
+2025-02-23 22:26:39.903 UTC [61832] DETAIL:  The postmaster has commanded this server process to roll back the current transaction and exit, because another server process exited abnormally and possibly corrupted shared memory.
+2025-02-23 22:26:39.903 UTC [61832] HINT:  In a moment you should be able to reconnect to the database and repeat your command.
+2025-02-23 22:26:39.904 UTC [1] LOG:  all server processes terminated; reinitializing
+2025-02-23 22:26:39.997 UTC [61836] LOG:  database system was interrupted; last known up at 2025-02-23 22:26:36 UTC
+2025-02-23 22:26:40.055 UTC [61836] LOG:  database system was not properly shut down; automatic recovery in progress
+2025-02-23 22:26:40.059 UTC [61836] LOG:  invalid record length at 0/DD867BA8: wanted 24, got 0
+2025-02-23 22:26:40.059 UTC [61836] LOG:  redo is not required
+2025-02-23 22:26:40.099 UTC [1] LOG:  database system is ready to accept connections
+2025-02-23 22:26:43.018 UTC [1] LOG:  server process (PID 61843) was terminated by signal 11: Segmentation fault
+2025-02-23 22:26:43.018 UTC [1] DETAIL:  Failed process was running: EXPLAIN (FORMAT JSON) SELECT COUNT(*) FROM tpch_sf2_z1 WHERE l_orderkey >= 10356780.471407078 AND l_orderkey <= 11793947.528592922 AND l_partkey >= 184956.7294820174 AND l_partkey <= 196691.2705179826 AND l_suppkey >= 4076.57400893827 AND l_suppkey <= 7627.42599106173 AND l_linenumber <= 1.0546081912086596 AND l_quantity >= 23.28339027381786 AND l_quantity <= 26.71660972618214 AND l_extendedprice >= 47243.50229624263 AND l_extendedprice <= 48497.49770375737 AND l_discount >= 0.04449604977798416 AND l_discount <= 0.055503950222015846 AND l_tax >= 0.048981661010765586 AND l_tax <= 0.05101833898923442 AND l_returnflag = 'N' AND l_linestatus = 'F' AND l_shipdate = '1995-05-29' AND l_commitdate = '1995-07-29' AND l_receiptdate = '1995-06-22' AND l_shipinstruct = 'NONE                     ' AND l_shipmode = 'TRUCK     ';
+2025-02-23 22:26:43.018 UTC [1] LOG:  terminating any other active server processes
+2025-02-23 22:26:43.019 UTC [61840] WARNING:  terminating connection because of crash of another server process
+2025-02-23 22:26:43.019 UTC [61840] DETAIL:  The postmaster has commanded this server process to roll back the current transaction and exit, because another server process exited abnormally and possibly corrupted shared memory.
+2025-02-23 22:26:43.019 UTC [61840] HINT:  In a moment you should be able to reconnect to the database and repeat your command.
+2025-02-23 22:26:43.020 UTC [1] LOG:  all server processes terminated; reinitializing
+2025-02-23 22:26:43.112 UTC [61844] LOG:  database system was interrupted; last known up at 2025-02-23 22:26:40 UTC
+2025-02-23 22:26:43.242 UTC [61844] LOG:  database system was not properly shut down; automatic recovery in progress
+2025-02-23 22:26:43.246 UTC [61844] LOG:  invalid record length at 0/DD867C20: wanted 24, got 0
+2025-02-23 22:26:43.246 UTC [61844] LOG:  redo is not required
+2025-02-23 22:26:43.287 UTC [1] LOG:  database system is ready to accept connections
+```

@@ -1,0 +1,1 @@
+\copy forest from '/tmp/single_table_datasets/forest/forest.csv' with CSV header;

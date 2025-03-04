@@ -1,20 +1,38 @@
-.PHONY: execute_permission apply_patch build_docker docker_run clean create_forest_db replace_file replace all create_stats_db copy_estimations
+.PHONY: execute_permission apply_patch p_error build_docker stop_all_containers docker_run clean set_docker_permissions replace_file replace all create_stats_db copy_estimations create_db start_container test_one_file
 
 IMAGE_NAME=ceb1
+DATABASE_NAME=forest
+CONTAINER_NAME=ce-benchmark-$(IMAGE_NAME)-$(DATABASE_NAME)
+TEST_FILENAME=NA
 
 all: execute_permission apply_patch build_docker init
 
+test: execute_permission init test_db p_error stop_container
+
+test_one: stop_all_containers start_container test_one_file stop_container
+
 replace: replace_file build_docker
 
-init: execute_permission docker_run create_power_db create_forest_db copy_estimations
+init: execute_permission stop_all_containers docker_run create_db copy_estimations set_docker_permissions
 
-test: test_forest_db
+start_container:
+	@docker start $(CONTAINER_NAME)
+	echo "$(CONTAINER_NAME) Container started!"
 
-test_forest_db: 
-	@conda run -n cardest python scripts/py/send_query.py forest
+stop_container:
+	@docker stop $(CONTAINER_NAME)
+	echo "$(CONTAINER_NAME) Container stopped!"
 
-test_power_db: 
-	@conda run -n cardest python scripts/py/send_query.py power
+test_db: 
+	@stdbuf -oL conda run -n cardest37 python -u scripts/py/send_query.py --database_name $(DATABASE_NAME) --container_name $(CONTAINER_NAME) 2>&1 | tee -a $(DATABASE_NAME)_test.log
+
+test_one_file:
+	@stdbuf -oL conda run -n cardest37 python -u scripts/py/send_query.py --database_name $(DATABASE_NAME) --container_name $(CONTAINER_NAME) --filename $(TEST_FILENAME) 2>&1 | tee -a $(DATABASE_NAME)_test.log
+
+p_error:
+	@conda run -n cardest37 python -u p_error_calculation.py --database_name $(DATABASE_NAME)
+	mkdir -p scripts/plan_cost/$(DATABASE_NAME)/results
+	mv scripts/plan_cost/$(DATABASE_NAME)/*.txt scripts/plan_cost/$(DATABASE_NAME)/results/
 
 execute_permission:
 	@chmod u+x *.sh
@@ -33,30 +51,31 @@ build_docker:
 	@rm -rf postgres-13.1.tar.gz
 
 docker_run:
-	@docker rm -f ce-benchmark-$(IMAGE_NAME) || true
-	@docker run -it --name ce-benchmark-$(IMAGE_NAME) -p 5431:5432 -d $(IMAGE_NAME) 
+	echo "Starting docker"
+	@docker rm -f $(CONTAINER_NAME) || true
+	# @docker exec $(CONTAINER_NAME) mkdir -p /tmp/single_table_datasets
+	# @docker cp single_table_datasets/${DATABASE_NAME} $(CONTAINER_NAME):/tmp/single_table_datasets
+	@docker run -v $(shell pwd)/single_table_datasets/${DATABASE_NAME}:/tmp/single_table_datasets/${DATABASE_NAME}:ro -v $(shell pwd)/scripts:/tmp/scripts:ro --name $(CONTAINER_NAME) -p 5431:5432 -d $(IMAGE_NAME)
+	echo "Docker is running"
 
-create_stats_db:
-	@./attach_and_run.sh ce-benchmark-$(IMAGE_NAME)
+stop_all_containers:
+	@docker stop $(shell docker ps -a -q) || true
 
-create_forest_db:
-	@./attach_and_run_forest.sh ce-benchmark-$(IMAGE_NAME)
+create_db:
+	@sleep 2
+	@./attach_and_run.sh $(DATABASE_NAME) $(CONTAINER_NAME)
 
-create_dmv_db:
-	@./attach_and_run_dmv.sh ce-benchmark-$(IMAGE_NAME)
-
-create_power_db:
-	@./attach_and_run_power.sh ce-benchmark-$(IMAGE_NAME)
+set_docker_permissions:
+	@docker exec --user root $(CONTAINER_NAME) chown -R postgres:postgres /var/lib/pgsql/13.1/data/
+	@docker exec --user root $(CONTAINER_NAME) chmod -R 750 /var/lib/pgsql/13.1/data/
 
 copy_estimations:
-	# @docker cp workloads/stats_CEB/sub_plan_queries/estimates/stats_CEB_sub_queries_bayescard.txt ce-benchmark-$(IMAGE_NAME):/var/lib/pgsql/13.1/data/
-	@docker cp workloads/forest/estimates/forest_estimations.txt ce-benchmark-$(IMAGE_NAME):/var/lib/pgsql/13.1/data/
-	@docker cp workloads/forest/estimates/forest_true_card.txt ce-benchmark-$(IMAGE_NAME):/var/lib/pgsql/13.1/data/
-	@docker cp workloads/forest/estimates/naru_forest10_estimates.txt ce-benchmark-$(IMAGE_NAME):/var/lib/pgsql/13.1/data/
-	@docker cp workloads/forest/estimates/deepdb_forest10_estimates.txt ce-benchmark-$(IMAGE_NAME):/var/lib/pgsql/13.1/data/
-	@docker cp workloads/forest/estimates/mscn_forest10_estimates.txt ce-benchmark-$(IMAGE_NAME):/var/lib/pgsql/13.1/data/
-	@docker cp workloads/forest/estimates/lwnn_forest10_estimates.txt ce-benchmark-$(IMAGE_NAME):/var/lib/pgsql/13.1/data/
-	@docker cp workloads/forest/estimates/lwtree_forest10_estimates.txt ce-benchmark-$(IMAGE_NAME):/var/lib/pgsql/13.1/data/
+	echo "Copying estimations"
+	# @docker cp workloads/$(DATABASE_NAME)/estimates/ $(CONTAINER_NAME):/var/lib/pgsql/13.1/data/
+	@for file in workloads/$(DATABASE_NAME)/estimates/*.txt; do \
+		echo "Copying $$file"; \
+		docker cp "$$file" $(CONTAINER_NAME):/var/lib/pgsql/13.1/data/; \
+	done
 
 clean:
 	@rm -rf postgresql-13.1

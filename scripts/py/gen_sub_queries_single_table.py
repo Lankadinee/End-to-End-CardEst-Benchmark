@@ -1,5 +1,3 @@
-import copy
-
 ops = {"=", "<", ">", "<=", ">="}
 
 
@@ -62,7 +60,6 @@ def parse_query_one(query):
             else:
                 assert False, "multiple join keys between two tables"
 
-
     return tables_all, table_cond
 
 
@@ -84,7 +81,7 @@ def process_one(query, sub_queries, write_file, i, j):
 
         if query_table in table_cond:
             for cond in table_cond[query_table]:
-                query_str += (cond + " AND ")
+                query_str += cond + " AND "
             query_str = query_str[:-5] + f";||{j}\n"
         else:
             query_str = query_str[:-7] + f";||{j}\n"
@@ -108,10 +105,16 @@ def generate_all_single_table_queries(raw_file="single_tbl_est_record_process.tx
         n = len(q.split("\n")[0])
         query = "SELECT" + q.split("\n")[0]
         query = query.strip()
-        query = query[:-1] if query[-1] == ';' else query
+        query = query[:-1] if query[-1] == ";" else query
         sub_queries = q[n:].strip().split("\n\n\n")
         i, t_num = process_one(query, sub_queries, write_file, i, j)
         table_nums.append(t_num)
     write_file.close()
     file.close()
 
+
+if __name__ == "__main__":
+    generate_all_single_table_queries(
+        raw_file="/home/titan/phd/megadrive/End-to-End-CardEst-Benchmark/single_tbl_est_record.txt", 
+        write_file_path="/home/titan/phd/megadrive/End-to-End-CardEst-Benchmark/stats_CEB_single_table_sub_query.sql"
+    )

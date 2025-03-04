@@ -1,0 +1,15 @@
+create index idx_l_orderkey on tpch_sf2_z2 using btree(l_orderkey);
+create index idx_l_partkey on tpch_sf2_z2 using btree(l_partkey);
+create index idx_l_suppkey on tpch_sf2_z2 using btree(l_suppkey);
+create index idx_l_linenumber on tpch_sf2_z2 using btree(l_linenumber);
+create index idx_l_quantity on tpch_sf2_z2 using btree(l_quantity);
+create index idx_l_extendedprice on tpch_sf2_z2 using btree(l_extendedprice);
+create index idx_l_discount on tpch_sf2_z2 using btree(l_discount);
+create index idx_l_tax on tpch_sf2_z2 using btree(l_tax);
+create index idx_l_returnflag on tpch_sf2_z2 using btree(l_returnflag);
+create index idx_l_linestatus on tpch_sf2_z2 using btree(l_linestatus);
+create index idx_l_shipdate on tpch_sf2_z2 using btree(l_shipdate);
+create index idx_l_commitdate on tpch_sf2_z2 using btree(l_commitdate);
+create index idx_l_receiptdate on tpch_sf2_z2 using btree(l_receiptdate);
+create index idx_l_shipinstruct on tpch_sf2_z2 using btree(l_shipinstruct);
+create index idx_l_shipmode on tpch_sf2_z2 using btree(l_shipmode);

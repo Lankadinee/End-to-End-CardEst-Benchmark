@@ -16,17 +16,15 @@ SQL_SCRIPT="/tmp/commands.sql"
 cat <<EOF >$SQL_SCRIPT
 CREATE DATABASE power;
 \c power;
-\i single_table_datasets/power/power.sql;
-\i scripts/sql/power_load.sql;
-\i scripts/sql/power_index.sql;
+\i /tmp/single_table_datasets/power/power.sql;
+\i /tmp/scripts/sql/power_load.sql;
+\i /tmp/scripts/sql/power_index.sql;
 EOF
 
 # Copy the script to the container
+docker exec $CONTAINER_ID mkdir -p /tmp/single_table_datasets
 docker cp $SQL_SCRIPT $CONTAINER_ID:/tmp/commands.sql
-
-# Copy Scripts and datasets directory to the container
-docker cp single_table_datasets $CONTAINER_ID:single_table_datasets
-docker cp scripts $CONTAINER_ID:scripts
+echo "Copied $SQL_SCRIPT to $CONTAINER_ID:/tmp/commands.sql"
 
 # Commands to execute inside the container
 COMMANDS="psql -d template1 -h localhost -U postgres -f /tmp/commands.sql"

@@ -1,0 +1,1 @@
+\copy custom from '/tmp/single_table_datasets/custom/custom.csv' with CSV header;

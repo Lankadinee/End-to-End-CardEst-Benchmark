@@ -1,0 +1,1 @@
+\copy tpch_lineitem_20 from '/tmp/single_table_datasets/tpch_lineitem_20/tpch_lineitem_20.csv' with CSV header;

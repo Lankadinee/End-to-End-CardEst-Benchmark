@@ -1,0 +1,1 @@
+\copy tpch_sf2_z3 from '/tmp/single_table_datasets/tpch_sf2_z3/tpch_sf2_z3.csv' with CSV header;

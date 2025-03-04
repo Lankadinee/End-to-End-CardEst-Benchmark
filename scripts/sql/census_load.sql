@@ -1,0 +1,1 @@
+\copy census from '/tmp/single_table_datasets/census/census.csv' with CSV header;

@@ -1,0 +1,1 @@
+\copy synthetic_correlated_2 from '/tmp/single_table_datasets/synthetic_correlated_2/synthetic_correlated_2.csv' with CSV header;

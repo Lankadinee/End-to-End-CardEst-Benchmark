@@ -249,7 +249,7 @@ def generate_all_join_queries(raw_file, query_file, write_file_path):
     for j, q in enumerate(per_queries):
         query = queries[j]
         query = query.replace("select", "SELECT")
-        query = query.split("||")[0]
+        query = query.split("||")[1]
         query = query.strip()
         query = query[:-1] if query[-1] == ';' else query
         sub_queries = q.strip().split("\n\n\n")
@@ -265,6 +265,9 @@ if __name__ == '__main__':
     parser.add_argument('--write_file_path', type=str, default='stats_CEB_sub_queries.sql', help='where to save file')
     args = parser.parse_args()
     
-    generate_all_join_queries(args.raw_file, args.query_file, args.write_file_path)
+    # generate_all_join_queries(args.raw_file, args.query_file, args.write_file_path)
+    generate_all_join_queries(raw_file="/home/titan/phd/megadrive/End-to-End-CardEst-Benchmark/join_est_record_job_deepdb.txt", 
+                              query_file="/home/titan/phd/megadrive/End-to-End-CardEst-Benchmark/workloads/stats_CEB/stats_CEB.sql", 
+                              write_file_path="/home/titan/phd/megadrive/End-to-End-CardEst-Benchmark/stats_CEB_sub_queries_deepdb.sql")
     
     
