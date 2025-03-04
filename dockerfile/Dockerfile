@@ -30,7 +30,7 @@ RUN cd /root/ \
     && rm postgres-13.1.tar.gz \
     && cd postgresql-13.1 \
     && ./configure --prefix=/usr/local/pgsql/13.1 --enable-depend --enable-cassert --enable-debug CFLAGS="-ggdb -O0" \
-    && make \
+    && make -j$(nproc) \
     && make install \
     && echo 'export PATH=/usr/local/pgsql/13.1/bin:$PATH' >> /root/.bashrc \
     && echo 'export LD_LIBRARY_PATH=/usr/local/pgsql/13.1/lib/:$LD_LIBRARY_PATH' >> /root/.bashrc
