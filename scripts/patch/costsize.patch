@@ -1,0 +1,175 @@
+--- scripts/original/costsize.c	2025-03-10 12:31:43.501250502 +1100
++++ postgresql-13.1/src/backend/optimizer/path/costsize.c	2025-03-10 12:31:26.317392599 +1100
+@@ -225,10 +225,18 @@
+ 	Assert(baserel->rtekind == RTE_RELATION);
+ 
+ 	/* Mark the path with the correct row estimate */
++	 FILE *ffp = fopen("custom_log_file.txt", "a");
+ 	if (param_info)
++	 {
+ 		path->rows = param_info->ppi_rows;
++		 fprintf(ffp, "Seq scan | Param info > %.5f\n", path->rows);
++	 }
+ 	else
++	 {
+ 		path->rows = baserel->rows;
++		 fprintf(ffp, "Seq scan | BaseRel info > %.5f\n", path->rows);
++	 }
++	 fclose(ffp);
+ 
+ 	if (!enable_seqscan)
+ 		startup_cost += disable_cost;
+@@ -253,9 +261,15 @@
+ 	startup_cost += path->pathtarget->cost.startup;
+ 	cpu_run_cost += path->pathtarget->cost.per_tuple * path->rows;
+ 
++	 ffp = fopen("custom_log_file.txt", "a");
++ 
++	 fprintf(ffp, "Seq scan | Cost per tuple > %.10f\n", path->pathtarget->cost.per_tuple);
++	 fprintf(ffp, "Seq scan | CPU run cost > %.5f\n", cpu_run_cost);
++ 
+ 	/* Adjust costing for parallelism, if used. */
+ 	if (path->parallel_workers > 0)
+ 	{
++		 fprintf(ffp, "Seq scan | Parallel workers > %.5f\n", path->parallel_workers);
+ 		double		parallel_divisor = get_parallel_divisor(path);
+ 
+ 		/* The CPU cost is divided among all the workers. */
+@@ -277,6 +291,13 @@
+ 
+ 	path->startup_cost = startup_cost;
+ 	path->total_cost = startup_cost + cpu_run_cost + disk_run_cost;
++	 
++	 fprintf(ffp, "Seq scan | Startup cost > %.5f\n", path->startup_cost);
++	 fprintf(ffp, "Seq scan | CPU run cost > %.5f\n", cpu_run_cost);
++	 fprintf(ffp, "Seq scan | Disk run cost > %.5f\n", disk_run_cost);
++	 fprintf(ffp, "Seq scan | Total cost > %.5f\n", path->total_cost);
++	 fprintf(ffp, "--------------------------------------\n");
++	 fclose(ffp);
+ }
+ 
+ /*
+@@ -515,9 +536,14 @@
+ 	 * baserestrictinfo as the list of relevant restriction clauses for the
+ 	 * rel.
+ 	 */
++ 
++	 FILE *ffp = fopen("custom_log_file.txt", "a");
++	 
++ 
+ 	if (path->path.param_info)
+ 	{
+ 		path->path.rows = path->path.param_info->ppi_rows;
++		 fprintf(ffp, "Index scan | Param info info > %.5f\n",path->path.rows);
+ 		/* qpquals come from the rel's restriction clauses and ppi_clauses */
+ 		qpquals = list_concat(extract_nonindex_conditions(path->indexinfo->indrestrictinfo,
+ 														  path->indexclauses),
+@@ -527,6 +553,7 @@
+ 	else
+ 	{
+ 		path->path.rows = baserel->rows;
++		 fprintf(ffp, "Index scan | BaseRel info > %.5f\n", path->path.rows);
+ 		/* qpquals come from just the rel's restriction clauses */
+ 		qpquals = extract_nonindex_conditions(path->indexinfo->indrestrictinfo,
+ 											  path->indexclauses);
+@@ -544,11 +571,31 @@
+ 	 * pathnodes.h uses a weak function type to avoid including amapi.h.
+ 	 */
+ 	amcostestimate = (amcostestimate_function) index->amcostestimate;
++
++	 fprintf(ffp, "Index scan | indexStartupCost > %.5f\n",indexStartupCost);
++	 fprintf(ffp, "Index scan | indexTotalCost > %.5f\n",indexTotalCost);
++	 fprintf(ffp, "Index scan | indexSelectivity > %.5f\n",indexSelectivity);
++	 fprintf(ffp, "Index scan | indexCorrelation > %.5f\n",indexCorrelation);
++	 fprintf(ffp, "Index scan | index_pages > %.5f\n",index_pages);
++
++
+ 	amcostestimate(root, path, loop_count,
+ 				   &indexStartupCost, &indexTotalCost,
+ 				   &indexSelectivity, &indexCorrelation,
+ 				   &index_pages);
+ 
++	 fprintf(ffp, "Index scan | indexStartupCost > %.5f\n",indexStartupCost);
++	 fprintf(ffp, "Index scan | indexTotalCost > %.5f\n",indexTotalCost);
++	 fprintf(ffp, "Index scan | indexSelectivity > %.5f\n",indexSelectivity);
++	 fprintf(ffp, "Index scan | indexCorrelation > %.5f\n",indexCorrelation);
++	 fprintf(ffp, "Index scan | index_pages > %.5f\n",index_pages);
++	 
++	 fprintf(ffp, "Index scan | pages_fetched > %.5f\n",pages_fetched);
++	 fprintf(ffp, "Index scan | rand_heap_pages > %.5f\n",rand_heap_pages);
++	 fprintf(ffp, "Index scan | index_pages > %.5f\n",index_pages);
++	 fprintf(ffp, "Index scan | baserel->pages > %.5f\n",baserel->pages);
++ 
++ 
+ 	/*
+ 	 * Save amcostestimate's results for possible use in bitmap scan planning.
+ 	 * We don't bother to save indexStartupCost or indexCorrelation, because a
+@@ -732,17 +779,35 @@
+ 	startup_cost += path->path.pathtarget->cost.startup;
+ 	cpu_run_cost += path->path.pathtarget->cost.per_tuple * path->path.rows;
+ 
++	 fprintf(ffp, "Index scan | Cost per tuple > %.10f\n", path->path.pathtarget->cost.per_tuple);
++	 fprintf(ffp, "Index scan | CPU run cost > %.5f\n", cpu_run_cost);
++	 fprintf(ffp, "Index scan | tuples_fetched > %.5f\n", tuples_fetched);
++	 fprintf(ffp, "Index scan | startup_cost > %.5f\n", startup_cost);
++	 fprintf(ffp, "Index scan | cpu_per_tuple > %.5f\n", cpu_per_tuple);
++	 fprintf(ffp, "Index scan | indexSelectivity > %.5f\n", indexSelectivity);
++	 fprintf(ffp, "Index scan | baserel->tuples > %.5f\n", baserel->tuples);
++ 
+ 	/* Adjust costing for parallelism, if used. */
+ 	if (path->path.parallel_workers > 0)
+ 	{
+ 		double		parallel_divisor = get_parallel_divisor(&path->path);
+ 
++		 fprintf(ffp, "Index scan | Parallel workers > %.5f\n", path->path.parallel_workers);
++ 
+ 		path->path.rows = clamp_row_est(path->path.rows / parallel_divisor);
+ 
+ 		/* The CPU cost is divided among all the workers. */
+ 		cpu_run_cost /= parallel_divisor;
+ 	}
+ 
++	 
++	 fprintf(ffp, "Index scan | Startup cost > %.5f\n", startup_cost);
++	 fprintf(ffp, "Index scan | CPU run cost > %.5f\n", cpu_run_cost);
++	 fprintf(ffp, "Index scan | Disk run cost > %.5f\n", run_cost);
++	 fprintf(ffp, "Index scan | Total cost > %.5f\n", startup_cost + cpu_run_cost + run_cost);
++	 fprintf(ffp, "--------------------------------------\n");
++	 fclose(ffp);
++ 
+ 	run_cost += cpu_run_cost;
+ 
+ 	path->path.startup_cost = startup_cost;
+@@ -4654,8 +4719,26 @@
+ 							   JOIN_INNER,
+ 							   NULL);
+ 
++	 // rel->rows = clamp_row_est(nrows);
++	 // FILE *fp = fopen("row_estimate.txt", "r");
++	 // if (fp != NULL) {
++	 // 	fscanf(fp, "%lf", &nrows);
++	 // 	fclose(fp);
++	 // } else {
++	 // 	nrows = 12345;  // Default value if file is not found
++	 // }
++	 nrows = 1000000;
+ 	rel->rows = clamp_row_est(nrows);
+ 
++	 // rel->rows = 10000;
++ 
++	 FILE *ffp = fopen("custom_log_file.txt", "a");
++	 fprintf(ffp, "Estimated no of rows > %.5f\n", nrows);
++	 fprintf(ffp, "Clamped rows > %.5f\n", clamp_row_est(nrows));
++	 fprintf(ffp, "Rel rows > %.5f\n", rel->rows);
++	 fprintf(ffp, "--------------------------------------\n");
++	 fclose(ffp);
++ 
+ 	cost_qual_eval(&rel->baserestrictcost, rel->baserestrictinfo, root);
+ 
+ 	set_rel_width(root, rel);
+@@ -5842,3 +5925,4 @@
+ 
+ 	return pages_fetched;
+ }
++ 
+\ No newline at end of file

@@ -24,6 +24,10 @@ stop_container:
 	@docker stop $(CONTAINER_NAME)
 	echo "$(CONTAINER_NAME) Container stopped!"
 
+delete_container:
+	@docker rm -f $(CONTAINER_NAME) || true
+	echo "$(CONTAINER_NAME) Container deleted!"
+
 create_venv:
 	@uv sync
 
@@ -61,8 +65,13 @@ apply_patch:
 	@echo "Applying patch"
 	@./benchmark_builder.sh
 
+apply_custom_patch:
+	@wget https://ftp.postgresql.org/pub/source/v13.1/postgresql-13.1.tar.bz2
+	@tar xvf postgresql-13.1.tar.bz2 && cd postgresql-13.1
+	@bash custom_patch.sh apply
+
 replace_file:
-	@cp costsize-mod.c postgresql-13.1/src/backend/optimizer/path/costsize.c
+	@cp scripts/postgres_files/costsize.c postgresql-13.1/src/backend/optimizer/path/costsize.c
 
 build_docker:
 	@tar cvf postgres-13.1.tar.gz postgresql-13.1
@@ -73,8 +82,6 @@ build_docker:
 docker_run:
 	echo "Starting docker"
 	@docker rm -f $(CONTAINER_NAME) || true
-	# @docker exec $(CONTAINER_NAME) mkdir -p /tmp/single_table_datasets
-	# @docker cp single_table_datasets/${DATABASE_NAME} $(CONTAINER_NAME):/tmp/single_table_datasets
 	@docker run -v $(shell pwd)/single_table_datasets/${DATABASE_NAME}:/tmp/single_table_datasets/${DATABASE_NAME}:ro -v $(shell pwd)/scripts:/tmp/scripts:ro --name $(CONTAINER_NAME) -p 5431:5432 -d $(IMAGE_NAME)
 	echo "Docker is running"
 
@@ -97,9 +104,12 @@ copy_estimations:
 		docker cp "$$file" $(CONTAINER_NAME):/var/lib/pgsql/13.1/data/; \
 	done
 
+
+
 clean:
 	@rm -rf postgresql-13.1 || true
 	@rm postgresql-13.1.tar.bz2 || true
+	@bash custom_patch.sh create
 	@rm -rf dockerfile/postgres-13.1.tar.gz || true
 	@docker rm -f $(CONTAINER_NAME) || true
 	@docker rmi $(IMAGE_NAME) || true

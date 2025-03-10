@@ -9,9 +9,9 @@ from get_list_of_files import get_all_unprocessed_txt_files
 from loguru import logger
 from tqdm import tqdm
 
-RUN_ESTIMATES = True
+RUN_ESTIMATES = False
 RETRY_CONNECTION_WHEN_FAILED = False
-EXPERIMANT_NO = 2
+EXPERIMANT_NO = 3
 
 METADATA = {
     "custom": {
@@ -38,6 +38,10 @@ def get_sql_query(index):
     elif EXPERIMANT_NO == 2:
         lb = 50
         ub = 818 + lb
+        sql_txt = f"EXPLAIN (FORMAT JSON)SELECT COUNT(*) FROM custom WHERE Value_1 <= {ub} AND Value_1 >= {lb};"
+    elif EXPERIMANT_NO == 3:
+        lb = 0
+        ub = 100 + index * 100
         sql_txt = f"EXPLAIN (FORMAT JSON)SELECT COUNT(*) FROM custom WHERE Value_1 <= {ub} AND Value_1 >= {lb};"
 
     return sql_txt, lb, ub
@@ -100,8 +104,8 @@ def run_one_file(dataset, cardest_filename):
     if os.path.exists("/Users/hanyuxing/pgsql/13.1/data/join_est_record_job.txt"):
         os.remove("/Users/hanyuxing/pgsql/13.1/data/join_est_record_job.txt")
 
-    cursor.execute("SET debug_card_est=true;")
-    cursor.execute("SET logger.info_sub_queries=true;")
+    # cursor.execute("SET debug_card_est=true;")
+    # cursor.execute("SET logger.info_sub_queries=true;")
 
     if RUN_ESTIMATES:
         # Single table queries
@@ -112,11 +116,8 @@ def run_one_file(dataset, cardest_filename):
 
     time.sleep(1)
     dict_list = []
-    # ub_values = np.linspace(0, 48, 100)
-    # for no, val in tqdm(enumerate(ub_values)):
-    # for no in tqdm(range(1, 1927)):
 
-    loop_values = list(range(1, 1000))
+    loop_values = list(range(1, 10))
     for no in tqdm(loop_values):
         sql_txt, lb, ub = get_sql_query(no)
         retry_count = 0
@@ -163,7 +164,15 @@ def run_one_file(dataset, cardest_filename):
             )
         else:
             dict_list.append(
-                {"total_cost_true": total_cost, "true_access_path": scan_type}
+                {
+                    "index": no,
+                    "total_cost_estimates": total_cost,
+                    "access_path": scan_type,
+                    "input_card_est": rows_2,
+                    "real_card": real_card,
+                    "upper_bound": ub,
+                    "lower_bound": lb,
+                }
             )
 
         # logger.info("Used estimates from ", cardest_filename)
