@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Define the original file and the new file
-original_file="scripts/original/costsize.c"
-new_file="postgresql-13.1/src/backend/optimizer/path/costsize.c"
+original_file="postgresql-13.1/src/backend/optimizer/path/costsize.c"
+new_file="scripts/original/costsize.c"
 patch_file="scripts/patch/costsize.patch"
 
 # Check if the argument is 'create' or 'apply'

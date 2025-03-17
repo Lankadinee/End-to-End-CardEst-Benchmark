@@ -1,338 +1,338 @@
---- scripts/original/costsize.c	2025-03-10 12:31:43.501250502 +1100
-+++ postgresql-13.1/src/backend/optimizer/path/costsize.c	2025-03-17 19:55:49.365237363 +1100
-@@ -141,6 +141,15 @@
- bool		enable_parallel_hash = true;
- bool		enable_partition_pruning = true;
+--- postgresql-13.1/src/backend/optimizer/path/costsize.c	2025-03-17 19:55:49.365237363 +1100
++++ scripts/original/costsize.c	2025-03-10 12:31:43.501250502 +1100
+@@ -141,15 +141,6 @@
+  bool		enable_parallel_hash = true;
+  bool		enable_partition_pruning = true;
  
-+ /** start of modified  */
-+#define CARD_EST_QUERY_NUM 10000
-+bool ml_cardest_enabled = true;
-+static double card_ests[CARD_EST_QUERY_NUM] = {0.0};
-+static double ld_selectivity[CARD_EST_QUERY_NUM] = {0.0};
-+int query_no = 0;
-+/** end of modified  */
-+
-+ 
- typedef struct
- {
- 	PlannerInfo *root;
-@@ -180,6 +189,116 @@
- static double page_size(double tuples, int width);
- static double get_parallel_divisor(Path *path);
+- /** start of modified  */
+-#define CARD_EST_QUERY_NUM 10000
+-bool ml_cardest_enabled = true;
+-static double card_ests[CARD_EST_QUERY_NUM] = {0.0};
+-static double ld_selectivity[CARD_EST_QUERY_NUM] = {0.0};
+-int query_no = 0;
+-/** end of modified  */
+-
+- 
+  typedef struct
+  {
+ 	 PlannerInfo *root;
+@@ -189,116 +180,6 @@
+  static double page_size(double tuples, int width);
+  static double get_parallel_divisor(Path *path);
  
-+  /** start of modified  */
-+ static void read_from_fspn_estimate(const char* filename);
-+
-+// Function to read card estimates and selectivity from CSV file
-+static void read_from_fspn_estimate(const char* filename)
-+{
-+	FILE* ffp = fopen("custom_log_file.txt", "a");
-+	fprintf(ffp, "[%s] - Reading from file\n", filename);
-+
-+    FILE* fp = fopen(filename, "r");
-+    if (fp == NULL) {
-+        fprintf(stderr, "Failed to open file %s: %s\n", filename, strerror(errno));
-+
-+		fprintf(ffp, "Failed to open file %s: %s\n", filename, strerror(errno));
-+		fclose(ffp);
-+        return;
-+    }
-+
-+    double card_est;
-+    double tmp_selectivity;
-+    int query_cnt = 0;
-+
-+    while (fscanf(fp, "%lf,%lf", &card_est, &tmp_selectivity) == 2) {
-+        if (query_cnt >= CARD_EST_QUERY_NUM) {
-+            fprintf(stderr, "Warning: Maximum number of queries (%d) exceeded. Remaining rows will be ignored.\n", CARD_EST_QUERY_NUM);
-+
-+			fprintf(ffp, "Warning: Maximum number of queries (%d) exceeded. Remaining rows will be ignored.\n", CARD_EST_QUERY_NUM);
-+			fclose(ffp);
-+            break;
-+        }
-+        card_ests[query_cnt] = card_est;
-+        ld_selectivity[query_cnt] = tmp_selectivity;
-+        query_cnt++;
-+
-+		fprintf(ffp, "Query %d -> Card: %.2f, Selectivity: %.4f\n", query_cnt, card_est, tmp_selectivity);
-+
-+    }
-+
-+	fprintf(ffp, "[%s] - Query Count: %d\n", filename, query_cnt);
-+
-+    fclose(fp);
-+	fclose(ffp);
-+}
-+
-+// Function to read card estimates and selectivity from CSV file
-+// static void read_from_fspn_estimate(const char* filename)
-+// {
-+//     FILE* ffp = fopen("custom_log_file.txt", "a"); // Open log file
-+//     if (ffp == NULL) {
-+//         fprintf(stderr, "Failed to open log file custom_log_file.txt: %s\n", strerror(errno));
-+//         // Proceed without file logging
-+//     }
-+
-+//     FILE* fp = fopen(filename, "r");
-+//     if (fp == NULL) {
-+//         fprintf(stderr, "Failed to open file %s: %s\n", filename, strerror(errno));
-+//         if (ffp != NULL) {
-+//             fprintf(ffp, "Failed to open file %s: %s\n", filename, strerror(errno));
-+//             fclose(ffp);
-+//         }
-+//         return;
-+//     }
-+
-+//     double card_est;
-+//     double tmp_selectivity;
-+//     int query_cnt = 0;
-+
-+//     while (fscanf(fp, "%lf,%lf", &card_est, &tmp_selectivity) == 2) {
-+//         if (query_cnt >= CARD_EST_QUERY_NUM) {
-+//             fprintf(stderr, "Warning: Maximum number of queries (%d) exceeded. Remaining rows will be ignored.\n", CARD_EST_QUERY_NUM);
-+//             if (ffp != NULL) {
-+//                 fprintf(ffp, "Warning: Maximum number of queries (%d) exceeded. Remaining rows will be ignored.\n", CARD_EST_QUERY_NUM);
-+//             }
-+//             break;
-+//         }
-+
-+//         card_ests[query_cnt] = card_est;
-+//         ld_selectivity[query_cnt] = tmp_selectivity;
-+
-+//         if (ffp != NULL) {
-+//             fprintf(ffp, "Query %d -> Card: %.2f, Selectivity: %.4f\n", query_cnt, card_est, tmp_selectivity);
-+//         }
-+
-+//         query_cnt++;
-+//     }
-+
-+//     fclose(fp);
-+//     if (ffp != NULL) {
-+//         fclose(ffp);
-+//     }
-+
-+//     query_no = query_cnt;
-+// }
-+
-+
-+/* 
-+ * This function will be executed automatically when the module is loaded 
-+ * The constructor attribute ensures it's called before main()
-+ */
-+// This function runs automatically before main if compiled as a shared library
-+// static void __attribute__((constructor)) costsize_init(void)
-+// {
-+//     read_from_fspn_estimate("./row_estimate.csv");
-+
-+//     // Optional debug output
-+//     for (int i = 0; i < query_no; i++) {
-+//         printf("Query %d -> Card: %.2f, Selectivity: %.4f\n", i, card_ests[i], ld_selectivity[i]);
-+//     }
-+// }
-+
+-  /** start of modified  */
+- static void read_from_fspn_estimate(const char* filename);
+-
+-// Function to read card estimates and selectivity from CSV file
+-static void read_from_fspn_estimate(const char* filename)
+-{
+-	FILE* ffp = fopen("custom_log_file.txt", "a");
+-	fprintf(ffp, "[%s] - Reading from file\n", filename);
+-
+-    FILE* fp = fopen(filename, "r");
+-    if (fp == NULL) {
+-        fprintf(stderr, "Failed to open file %s: %s\n", filename, strerror(errno));
+-
+-		fprintf(ffp, "Failed to open file %s: %s\n", filename, strerror(errno));
+-		fclose(ffp);
+-        return;
+-    }
+-
+-    double card_est;
+-    double tmp_selectivity;
+-    int query_cnt = 0;
+-
+-    while (fscanf(fp, "%lf,%lf", &card_est, &tmp_selectivity) == 2) {
+-        if (query_cnt >= CARD_EST_QUERY_NUM) {
+-            fprintf(stderr, "Warning: Maximum number of queries (%d) exceeded. Remaining rows will be ignored.\n", CARD_EST_QUERY_NUM);
+-
+-			fprintf(ffp, "Warning: Maximum number of queries (%d) exceeded. Remaining rows will be ignored.\n", CARD_EST_QUERY_NUM);
+-			fclose(ffp);
+-            break;
+-        }
+-        card_ests[query_cnt] = card_est;
+-        ld_selectivity[query_cnt] = tmp_selectivity;
+-        query_cnt++;
+-
+-		fprintf(ffp, "Query %d -> Card: %.2f, Selectivity: %.4f\n", query_cnt, card_est, tmp_selectivity);
+-
+-    }
+-
+-	fprintf(ffp, "[%s] - Query Count: %d\n", filename, query_cnt);
+-
+-    fclose(fp);
+-	fclose(ffp);
+-}
+-
+-// Function to read card estimates and selectivity from CSV file
+-// static void read_from_fspn_estimate(const char* filename)
+-// {
+-//     FILE* ffp = fopen("custom_log_file.txt", "a"); // Open log file
+-//     if (ffp == NULL) {
+-//         fprintf(stderr, "Failed to open log file custom_log_file.txt: %s\n", strerror(errno));
+-//         // Proceed without file logging
+-//     }
+-
+-//     FILE* fp = fopen(filename, "r");
+-//     if (fp == NULL) {
+-//         fprintf(stderr, "Failed to open file %s: %s\n", filename, strerror(errno));
+-//         if (ffp != NULL) {
+-//             fprintf(ffp, "Failed to open file %s: %s\n", filename, strerror(errno));
+-//             fclose(ffp);
+-//         }
+-//         return;
+-//     }
+-
+-//     double card_est;
+-//     double tmp_selectivity;
+-//     int query_cnt = 0;
+-
+-//     while (fscanf(fp, "%lf,%lf", &card_est, &tmp_selectivity) == 2) {
+-//         if (query_cnt >= CARD_EST_QUERY_NUM) {
+-//             fprintf(stderr, "Warning: Maximum number of queries (%d) exceeded. Remaining rows will be ignored.\n", CARD_EST_QUERY_NUM);
+-//             if (ffp != NULL) {
+-//                 fprintf(ffp, "Warning: Maximum number of queries (%d) exceeded. Remaining rows will be ignored.\n", CARD_EST_QUERY_NUM);
+-//             }
+-//             break;
+-//         }
+-
+-//         card_ests[query_cnt] = card_est;
+-//         ld_selectivity[query_cnt] = tmp_selectivity;
+-
+-//         if (ffp != NULL) {
+-//             fprintf(ffp, "Query %d -> Card: %.2f, Selectivity: %.4f\n", query_cnt, card_est, tmp_selectivity);
+-//         }
+-
+-//         query_cnt++;
+-//     }
+-
+-//     fclose(fp);
+-//     if (ffp != NULL) {
+-//         fclose(ffp);
+-//     }
+-
+-//     query_no = query_cnt;
+-// }
+-
+-
+-/* 
+- * This function will be executed automatically when the module is loaded 
+- * The constructor attribute ensures it's called before main()
+- */
+-// This function runs automatically before main if compiled as a shared library
+-// static void __attribute__((constructor)) costsize_init(void)
+-// {
+-//     read_from_fspn_estimate("./row_estimate.csv");
+-
+-//     // Optional debug output
+-//     for (int i = 0; i < query_no; i++) {
+-//         printf("Query %d -> Card: %.2f, Selectivity: %.4f\n", i, card_ests[i], ld_selectivity[i]);
+-//     }
+-// }
+-
+  
+  /*
+   * clamp_row_est
+@@ -344,18 +225,10 @@
+ 	 Assert(baserel->rtekind == RTE_RELATION);
+  
+ 	 /* Mark the path with the correct row estimate */
+-	 FILE *ffp = fopen("custom_log_file.txt", "a");
+ 	 if (param_info)
+-	 {
+ 		 path->rows = param_info->ppi_rows;
+-		 fprintf(ffp, "Seq scan | Param info > %.5f\n", path->rows);
+-	 }
+ 	 else
+-	 {
+ 		 path->rows = baserel->rows;
+-		 fprintf(ffp, "Seq scan | BaseRel info > %.5f\n", path->rows);
+-	 }
+-	 fclose(ffp);
+  
+ 	 if (!enable_seqscan)
+ 		 startup_cost += disable_cost;
+@@ -380,15 +253,9 @@
+ 	 startup_cost += path->pathtarget->cost.startup;
+ 	 cpu_run_cost += path->pathtarget->cost.per_tuple * path->rows;
+ 	 
+-	 ffp = fopen("custom_log_file.txt", "a");
+- 
+-	 fprintf(ffp, "Seq scan | Cost per tuple > %.10f\n", path->pathtarget->cost.per_tuple);
+-	 fprintf(ffp, "Seq scan | CPU run cost > %.5f\n", cpu_run_cost);
+- 
+ 	 /* Adjust costing for parallelism, if used. */
+ 	 if (path->parallel_workers > 0)
+ 	 {
+-		 fprintf(ffp, "Seq scan | Parallel workers > %d\n", path->parallel_workers);
+ 		 double		parallel_divisor = get_parallel_divisor(path);
+  
+ 		 /* The CPU cost is divided among all the workers. */
+@@ -410,17 +277,6 @@
+  
+ 	 path->startup_cost = startup_cost;
+ 	 path->total_cost = startup_cost + cpu_run_cost + disk_run_cost;
+-	 
+-	 fprintf(ffp, "Seq scan | Startup cost > %.5f\n", path->startup_cost);
+-	 fprintf(ffp, "Seq scan | CPU run cost > %.5f\n", cpu_run_cost);
+-	 fprintf(ffp, "Seq scan | Disk run cost > %.5f\n", disk_run_cost);
+-	 fprintf(ffp, "Seq scan | Total cost > %.5f\n", path->total_cost);
+-
+-	 fprintf(ffp, "Query No: %d\n", query_no);
+-	 fprintf(ffp, "Card Est: %.2f, Selectivity: %.6f\n", card_ests[query_no], ld_selectivity[query_no]);
+-	 fprintf(ffp, "--------------------------------------\n");
+-	 fprintf(ffp, "--------------------------------------\n");
+-	 fclose(ffp);
+  }
+  
+  /*
+@@ -659,14 +515,9 @@
+ 	  * baserestrictinfo as the list of relevant restriction clauses for the
+ 	  * rel.
+ 	  */
+- 
+-	 FILE *ffp = fopen("custom_log_file.txt", "a");
+-	 
+- 
+ 	 if (path->path.param_info)
+ 	 {
+ 		 path->path.rows = path->path.param_info->ppi_rows;
+-		 fprintf(ffp, "Index scan | Param info info > %.5f\n",path->path.rows);
+ 		 /* qpquals come from the rel's restriction clauses and ppi_clauses */
+ 		 qpquals = list_concat(extract_nonindex_conditions(path->indexinfo->indrestrictinfo,
+ 														   path->indexclauses),
+@@ -676,7 +527,6 @@
+ 	 else
+ 	 {
+ 		 path->path.rows = baserel->rows;
+-		 fprintf(ffp, "Index scan | BaseRel info > %.5f\n", path->path.rows);
+ 		 /* qpquals come from just the rel's restriction clauses */
+ 		 qpquals = extract_nonindex_conditions(path->indexinfo->indrestrictinfo,
+ 											   path->indexclauses);
+@@ -694,33 +544,11 @@
+ 	  * pathnodes.h uses a weak function type to avoid including amapi.h.
+ 	  */
+ 	 amcostestimate = (amcostestimate_function) index->amcostestimate;
+-
+-	 fprintf(ffp, "Index scan | indexStartupCost > %.5f\n",indexStartupCost);
+-	 fprintf(ffp, "Index scan | indexTotalCost > %.5f\n",indexTotalCost);
+-	 fprintf(ffp, "Index scan | indexSelectivity > %.5f\n",indexSelectivity);
+-	 fprintf(ffp, "Index scan | indexCorrelation > %.5f\n",indexCorrelation);
+-	 fprintf(ffp, "Index scan | index_pages > %.5f\n",index_pages);
+-
+-
+ 	 amcostestimate(root, path, loop_count,
+ 					&indexStartupCost, &indexTotalCost,
+ 					&indexSelectivity, &indexCorrelation,
+ 					&index_pages);
+ 	 
+-	 fprintf(ffp, "Index scan | indexStartupCost > %.5f\n",indexStartupCost);
+-	 fprintf(ffp, "Index scan | indexTotalCost > %.5f\n",indexTotalCost);
+-	 fprintf(ffp, "Index scan | indexSelectivity > %.5f\n",indexSelectivity);
+-	 indexSelectivity = ld_selectivity[query_no];
+-	 fprintf(ffp, "Index scan | indexSelectivity > %.5f\n",indexSelectivity);
+-	 fprintf(ffp, "Index scan | indexCorrelation > %.5f\n",indexCorrelation);
+-	 fprintf(ffp, "Index scan | index_pages > %.5f\n",index_pages);
+-	 
+-	 fprintf(ffp, "Index scan | pages_fetched > %.5f\n",pages_fetched);
+-	 fprintf(ffp, "Index scan | rand_heap_pages > %.5f\n",rand_heap_pages);
+-	 fprintf(ffp, "Index scan | index_pages > %.5f\n",index_pages);
+-	 fprintf(ffp, "Index scan | baserel->pages > %.5f\n",baserel->pages);
+- 
+- 
+ 	 /*
+ 	  * Save amcostestimate's results for possible use in bitmap scan planning.
+ 	  * We don't bother to save indexStartupCost or indexCorrelation, because a
+@@ -904,35 +732,17 @@
+ 	 startup_cost += path->path.pathtarget->cost.startup;
+ 	 cpu_run_cost += path->path.pathtarget->cost.per_tuple * path->path.rows;
+  
+-	 fprintf(ffp, "Index scan | Cost per tuple > %.10f\n", path->path.pathtarget->cost.per_tuple);
+-	 fprintf(ffp, "Index scan | CPU run cost > %.5f\n", cpu_run_cost);
+-	 fprintf(ffp, "Index scan | tuples_fetched > %.5f\n", tuples_fetched);
+-	 fprintf(ffp, "Index scan | startup_cost > %.5f\n", startup_cost);
+-	 fprintf(ffp, "Index scan | cpu_per_tuple > %.5f\n", cpu_per_tuple);
+-	 fprintf(ffp, "Index scan | indexSelectivity > %.5f\n", indexSelectivity);
+-	 fprintf(ffp, "Index scan | baserel->tuples > %.5f\n", baserel->tuples);
+- 
+ 	 /* Adjust costing for parallelism, if used. */
+ 	 if (path->path.parallel_workers > 0)
+ 	 {
+ 		 double parallel_divisor = get_parallel_divisor(&path->path);
+  
+-		 fprintf(ffp, "Index scan | Parallel workers > %d\n", path->path.parallel_workers);
+- 
+ 		 path->path.rows = clamp_row_est(path->path.rows / parallel_divisor);
+  
+ 		 /* The CPU cost is divided among all the workers. */
+ 		 cpu_run_cost /= parallel_divisor;
+ 	 }
+  
+-	 
+-	 fprintf(ffp, "Index scan | Startup cost > %.5f\n", startup_cost);
+-	 fprintf(ffp, "Index scan | CPU run cost > %.5f\n", cpu_run_cost);
+-	 fprintf(ffp, "Index scan | Disk run cost > %.5f\n", run_cost);
+-	 fprintf(ffp, "Index scan | Total cost > %.5f\n", startup_cost + cpu_run_cost + run_cost);
+-	 fprintf(ffp, "--------------------------------------\n");
+-	 fclose(ffp);
+- 
+ 	 run_cost += cpu_run_cost;
+  
+ 	 path->path.startup_cost = startup_cost;
+@@ -4844,41 +4654,8 @@
+ 								JOIN_INNER,
+ 								NULL);
+  
+-	 // rel->rows = clamp_row_est(nrows);
+-	 // FILE *fp = fopen("row_estimate.txt", "r");
+-	 // if (fp != NULL) {
+-	 // 	fscanf(fp, "%lf", &nrows);
+-	 // 	fclose(fp);
+-	 // } else {
+-	 // 	nrows = 12345;  // Default value if file is not found
+-	 // }
+-
+-	 FILE *ffp = fopen("custom_log_file.txt", "a");
+-
+-	 if(ml_cardest_enabled){
+-		if (query_no == 0) {
+-			fprintf(ffp, "Loading cardinality estimates from file\n");
+-			read_from_fspn_estimate("/var/lib/pgsql/13.1/data/row_estimate.csv");
+-		}
+-
+-		double new_nrows = card_ests[query_no];
+-
+-		fprintf(ffp, "nrows estimated: %d nrows_override:%d\n", nrows, new_nrows);
+-
+-		nrows = new_nrows;
+-		query_no++;
+-	 }
+ 	 rel->rows = clamp_row_est(nrows);
+  
+-	 // rel->rows = 10000;
+- 
+-	 
+-	 fprintf(ffp, "Estimated no of rows > %.5f\n", nrows);
+-	 fprintf(ffp, "Clamped rows > %.5f\n", clamp_row_est(nrows));
+-	 fprintf(ffp, "Rel rows > %.5f\n", rel->rows);
+-	 fprintf(ffp, "--------------------------------------\n");
+-	 fclose(ffp);
+- 
+ 	 cost_qual_eval(&rel->baserestrictcost, rel->baserestrictinfo, root);
+  
+ 	 set_rel_width(root, rel);
+@@ -5984,8 +5761,6 @@
+ 	  */
+ 	 cost_bitmap_tree_node(bitmapqual, &indexTotalCost, &indexSelectivity);
  
- /*
-  * clamp_row_est
-@@ -225,10 +344,18 @@
- 	Assert(baserel->rtekind == RTE_RELATION);
- 
- 	/* Mark the path with the correct row estimate */
-+	 FILE *ffp = fopen("custom_log_file.txt", "a");
- 	if (param_info)
-+	 {
- 		path->rows = param_info->ppi_rows;
-+		 fprintf(ffp, "Seq scan | Param info > %.5f\n", path->rows);
-+	 }
- 	else
-+	 {
- 		path->rows = baserel->rows;
-+		 fprintf(ffp, "Seq scan | BaseRel info > %.5f\n", path->rows);
-+	 }
-+	 fclose(ffp);
- 
- 	if (!enable_seqscan)
- 		startup_cost += disable_cost;
-@@ -253,9 +380,15 @@
- 	startup_cost += path->pathtarget->cost.startup;
- 	cpu_run_cost += path->pathtarget->cost.per_tuple * path->rows;
- 
-+	 ffp = fopen("custom_log_file.txt", "a");
-+ 
-+	 fprintf(ffp, "Seq scan | Cost per tuple > %.10f\n", path->pathtarget->cost.per_tuple);
-+	 fprintf(ffp, "Seq scan | CPU run cost > %.5f\n", cpu_run_cost);
-+ 
- 	/* Adjust costing for parallelism, if used. */
- 	if (path->parallel_workers > 0)
- 	{
-+		 fprintf(ffp, "Seq scan | Parallel workers > %d\n", path->parallel_workers);
- 		double		parallel_divisor = get_parallel_divisor(path);
- 
- 		/* The CPU cost is divided among all the workers. */
-@@ -277,6 +410,17 @@
- 
- 	path->startup_cost = startup_cost;
- 	path->total_cost = startup_cost + cpu_run_cost + disk_run_cost;
-+	 
-+	 fprintf(ffp, "Seq scan | Startup cost > %.5f\n", path->startup_cost);
-+	 fprintf(ffp, "Seq scan | CPU run cost > %.5f\n", cpu_run_cost);
-+	 fprintf(ffp, "Seq scan | Disk run cost > %.5f\n", disk_run_cost);
-+	 fprintf(ffp, "Seq scan | Total cost > %.5f\n", path->total_cost);
-+
-+	 fprintf(ffp, "Query No: %d\n", query_no);
-+	 fprintf(ffp, "Card Est: %.2f, Selectivity: %.6f\n", card_ests[query_no], ld_selectivity[query_no]);
-+	 fprintf(ffp, "--------------------------------------\n");
-+	 fprintf(ffp, "--------------------------------------\n");
-+	 fclose(ffp);
- }
- 
- /*
-@@ -515,9 +659,14 @@
- 	 * baserestrictinfo as the list of relevant restriction clauses for the
- 	 * rel.
- 	 */
-+ 
-+	 FILE *ffp = fopen("custom_log_file.txt", "a");
-+	 
-+ 
- 	if (path->path.param_info)
- 	{
- 		path->path.rows = path->path.param_info->ppi_rows;
-+		 fprintf(ffp, "Index scan | Param info info > %.5f\n",path->path.rows);
- 		/* qpquals come from the rel's restriction clauses and ppi_clauses */
- 		qpquals = list_concat(extract_nonindex_conditions(path->indexinfo->indrestrictinfo,
- 														  path->indexclauses),
-@@ -527,6 +676,7 @@
- 	else
- 	{
- 		path->path.rows = baserel->rows;
-+		 fprintf(ffp, "Index scan | BaseRel info > %.5f\n", path->path.rows);
- 		/* qpquals come from just the rel's restriction clauses */
- 		qpquals = extract_nonindex_conditions(path->indexinfo->indrestrictinfo,
- 											  path->indexclauses);
-@@ -544,11 +694,33 @@
- 	 * pathnodes.h uses a weak function type to avoid including amapi.h.
- 	 */
- 	amcostestimate = (amcostestimate_function) index->amcostestimate;
-+
-+	 fprintf(ffp, "Index scan | indexStartupCost > %.5f\n",indexStartupCost);
-+	 fprintf(ffp, "Index scan | indexTotalCost > %.5f\n",indexTotalCost);
-+	 fprintf(ffp, "Index scan | indexSelectivity > %.5f\n",indexSelectivity);
-+	 fprintf(ffp, "Index scan | indexCorrelation > %.5f\n",indexCorrelation);
-+	 fprintf(ffp, "Index scan | index_pages > %.5f\n",index_pages);
-+
-+
- 	amcostestimate(root, path, loop_count,
- 				   &indexStartupCost, &indexTotalCost,
- 				   &indexSelectivity, &indexCorrelation,
- 				   &index_pages);
- 
-+	 fprintf(ffp, "Index scan | indexStartupCost > %.5f\n",indexStartupCost);
-+	 fprintf(ffp, "Index scan | indexTotalCost > %.5f\n",indexTotalCost);
-+	 fprintf(ffp, "Index scan | indexSelectivity > %.5f\n",indexSelectivity);
-+	 indexSelectivity = ld_selectivity[query_no];
-+	 fprintf(ffp, "Index scan | indexSelectivity > %.5f\n",indexSelectivity);
-+	 fprintf(ffp, "Index scan | indexCorrelation > %.5f\n",indexCorrelation);
-+	 fprintf(ffp, "Index scan | index_pages > %.5f\n",index_pages);
-+	 
-+	 fprintf(ffp, "Index scan | pages_fetched > %.5f\n",pages_fetched);
-+	 fprintf(ffp, "Index scan | rand_heap_pages > %.5f\n",rand_heap_pages);
-+	 fprintf(ffp, "Index scan | index_pages > %.5f\n",index_pages);
-+	 fprintf(ffp, "Index scan | baserel->pages > %.5f\n",baserel->pages);
-+ 
-+ 
- 	/*
- 	 * Save amcostestimate's results for possible use in bitmap scan planning.
- 	 * We don't bother to save indexStartupCost or indexCorrelation, because a
-@@ -732,17 +904,35 @@
- 	startup_cost += path->path.pathtarget->cost.startup;
- 	cpu_run_cost += path->path.pathtarget->cost.per_tuple * path->path.rows;
- 
-+	 fprintf(ffp, "Index scan | Cost per tuple > %.10f\n", path->path.pathtarget->cost.per_tuple);
-+	 fprintf(ffp, "Index scan | CPU run cost > %.5f\n", cpu_run_cost);
-+	 fprintf(ffp, "Index scan | tuples_fetched > %.5f\n", tuples_fetched);
-+	 fprintf(ffp, "Index scan | startup_cost > %.5f\n", startup_cost);
-+	 fprintf(ffp, "Index scan | cpu_per_tuple > %.5f\n", cpu_per_tuple);
-+	 fprintf(ffp, "Index scan | indexSelectivity > %.5f\n", indexSelectivity);
-+	 fprintf(ffp, "Index scan | baserel->tuples > %.5f\n", baserel->tuples);
-+ 
- 	/* Adjust costing for parallelism, if used. */
- 	if (path->path.parallel_workers > 0)
- 	{
- 		double		parallel_divisor = get_parallel_divisor(&path->path);
- 
-+		 fprintf(ffp, "Index scan | Parallel workers > %d\n", path->path.parallel_workers);
-+ 
- 		path->path.rows = clamp_row_est(path->path.rows / parallel_divisor);
- 
- 		/* The CPU cost is divided among all the workers. */
- 		cpu_run_cost /= parallel_divisor;
- 	}
- 
-+	 
-+	 fprintf(ffp, "Index scan | Startup cost > %.5f\n", startup_cost);
-+	 fprintf(ffp, "Index scan | CPU run cost > %.5f\n", cpu_run_cost);
-+	 fprintf(ffp, "Index scan | Disk run cost > %.5f\n", run_cost);
-+	 fprintf(ffp, "Index scan | Total cost > %.5f\n", startup_cost + cpu_run_cost + run_cost);
-+	 fprintf(ffp, "--------------------------------------\n");
-+	 fclose(ffp);
-+ 
- 	run_cost += cpu_run_cost;
- 
- 	path->path.startup_cost = startup_cost;
-@@ -4654,8 +4844,41 @@
- 							   JOIN_INNER,
- 							   NULL);
- 
-+	 // rel->rows = clamp_row_est(nrows);
-+	 // FILE *fp = fopen("row_estimate.txt", "r");
-+	 // if (fp != NULL) {
-+	 // 	fscanf(fp, "%lf", &nrows);
-+	 // 	fclose(fp);
-+	 // } else {
-+	 // 	nrows = 12345;  // Default value if file is not found
-+	 // }
-+
-+	 FILE *ffp = fopen("custom_log_file.txt", "a");
-+
-+	 if(ml_cardest_enabled){
-+		if (query_no == 0) {
-+			fprintf(ffp, "Loading cardinality estimates from file\n");
-+			read_from_fspn_estimate("/var/lib/pgsql/13.1/data/row_estimate.csv");
-+		}
-+
-+		double new_nrows = card_ests[query_no];
-+
-+		fprintf(ffp, "nrows estimated: %d nrows_override:%d\n", nrows, new_nrows);
-+
-+		nrows = new_nrows;
-+		query_no++;
-+	 }
- 	rel->rows = clamp_row_est(nrows);
- 
-+	 // rel->rows = 10000;
-+ 
-+	 
-+	 fprintf(ffp, "Estimated no of rows > %.5f\n", nrows);
-+	 fprintf(ffp, "Clamped rows > %.5f\n", clamp_row_est(nrows));
-+	 fprintf(ffp, "Rel rows > %.5f\n", rel->rows);
-+	 fprintf(ffp, "--------------------------------------\n");
-+	 fclose(ffp);
-+ 
- 	cost_qual_eval(&rel->baserestrictcost, rel->baserestrictinfo, root);
- 
- 	set_rel_width(root, rel);
-@@ -5761,6 +5984,8 @@
- 	 */
- 	cost_bitmap_tree_node(bitmapqual, &indexTotalCost, &indexSelectivity);
- 
-+	 indexSelectivity = ld_selectivity[query_no];
-+ 
- 	/*
- 	 * Estimate number of main-table pages fetched.
- 	 */
-@@ -5842,3 +6067,4 @@
- 
- 	return pages_fetched;
- }
-+ 
+-	 indexSelectivity = ld_selectivity[query_no];
+- 
+ 	 /*
+ 	  * Estimate number of main-table pages fetched.
+ 	  */
+@@ -6067,4 +5842,3 @@
+  
+ 	 return pages_fetched;
+  }
+- 
 \ No newline at end of file
