@@ -109,9 +109,9 @@ def run_one_file(dataset, cardest_filename):
     if RUN_ESTIMATES:
         # Single table queries
         # cursor.execute('SET logger.info_single_tbl_queries=true')
-        # cursor.execute("SET ml_cardest_enabled=true;")
+        cursor.execute("SET ml_cardest_enabled=true;")
         cursor.execute(f"SET ml_cardest_fname='{cardest_filename}';")
-        # cursor.execute("SET query_no=0;")
+        cursor.execute("SET query_no=0;")
 
     time.sleep(1)
     dict_list = []
