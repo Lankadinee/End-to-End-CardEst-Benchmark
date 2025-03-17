@@ -9,7 +9,7 @@ from get_list_of_files import get_all_unprocessed_txt_files
 from loguru import logger
 from tqdm import tqdm
 
-RUN_ESTIMATES = False
+RUN_ESTIMATES = True
 RETRY_CONNECTION_WHEN_FAILED = False
 EXPERIMANT_NO = 3
 
@@ -88,11 +88,10 @@ def run_one_file(dataset, cardest_filename):
 
     conn, cursor = create_connection(database_name)
     logger.info(f"Processing {cardest_filename}")
+    cardest_filepath = Path(cardest_filename)
 
     export_dirpath = current_dir / f"../plan_cost/{database_name}/"
-    export_filepath = (
-        export_dirpath / f'{cardest_filename.split(".")[0] + "_cost_variable.csv"}'
-    )
+    export_filepath = export_dirpath / f'{cardest_filepath.stem + "_cost_variable.csv"}'
     logger.info(f"Exporting to {export_filepath}")
     if not export_dirpath.exists():
         export_dirpath.mkdir(parents=True)
@@ -110,9 +109,9 @@ def run_one_file(dataset, cardest_filename):
     if RUN_ESTIMATES:
         # Single table queries
         # cursor.execute('SET logger.info_single_tbl_queries=true')
-        cursor.execute("SET ml_cardest_enabled=true;")
+        # cursor.execute("SET ml_cardest_enabled=true;")
         cursor.execute(f"SET ml_cardest_fname='{cardest_filename}';")
-        cursor.execute("SET query_no=0;")
+        # cursor.execute("SET query_no=0;")
 
     time.sleep(1)
     dict_list = []
@@ -199,4 +198,4 @@ def run_one_file(dataset, cardest_filename):
 
 
 if __name__ == "__main__":
-    run_one_file("custom", "custom_estimates_1_1000.txt")
+    run_one_file("custom", "/var/lib/pgsql/13.1/data/row_estimate.csv")
